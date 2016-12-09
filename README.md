@@ -1,5 +1,4 @@
 # await.js
----
 
 await.js is a lightweight javascript library that enables awaiting object state. It is kept dependency-free so it can easily be integrated into existing projects without any overhead or conflict. 
 
@@ -113,9 +112,7 @@ window.onload = function() {
 }
 ```
 
-
-
-
+---
 
 ### Full example
 
