@@ -1,6 +1,6 @@
 # await.js
 
-await.js is a lightweight javascript library that enables awaiting object state. It is kept dependency-free so it can easily be integrated into existing projects without any overhead or conflict. 
+await.js is a lightweight javascript library that enables awaiting object state. It is dependency-independant so it can easily be integrated into existing projects without any overhead or conflict. 
 
 Although sharing some similarities, await.js does **not** follow the **Promises/A+** specification. There is no state process and success/error handling are not provided within the scope of await.js. The original intent is that await.js is a simple utility for async boilerplate.
 
@@ -14,11 +14,11 @@ await.notify("The end of the world");
 
 The await statement accepts one of 3 types of arguments 
 
- * Time-based
- * Identifier/object
- * Lock
+ * Time (ms)
+ * Date
+ * Object or Lock identifier
  
-and is followed by a then-statement accepting a handler function. 
+Which returns a Future object containing a then-function accepting a handler.
 
 ```
 await( <argument> ) .then(  <then-handler> );
