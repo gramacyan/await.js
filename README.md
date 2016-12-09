@@ -48,13 +48,13 @@ await(new Date(2020,0,1)).then(function() {
 
 await.js allows separate await statements being active at the same time. It's specified argument is what sets them apart and can be anything except primitive numbers or Date objects (see awaiting time).
 
-Use `await.notify` or `await.resolve` to notify the specified identifier being ready to be handled. Beware, when the identifier is an object, it should be the same instance as the one provided in the await statement.
+Use `await.notify` or `await.resolve` to notify the specified identifier being ready to be handled. Beware if the identifier is an object it should be the same instance as provided in the await statement.
 
 ```
 // Await
-await("my-identifier").then(...); // String
-await(true).then(...); // Boolean
-await({}).then(...); // Object
+await("my-identifier").then(...);
+await(true).then(...);
+await({}).then(...);
 
 // Notify
 await.notify("my-identifier");
@@ -114,7 +114,7 @@ window.onload = function() {
 
 ---
 
-### Full example
+### Working async example
 
 ```
 var Remote = {
