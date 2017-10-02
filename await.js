@@ -258,8 +258,10 @@
         if (typeof define === 'function' && define.amd) {
             define('await', [], function(){ return await; });
         }
-        // always expose to root
-        root['await'] = await;
+        // always try to expose to root
+        if (!root['await']) {
+            root['await'] = await;
+        }
     }
 
 })(this);
