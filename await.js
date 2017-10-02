@@ -257,9 +257,9 @@
         // for browsers
         if (typeof define === 'function' && define.amd) {
             define('await', [], function(){ return await; });
-        } else {
-            root['await'] = await;
         }
+        // always expose to root
+        root['await'] = await;
     }
 
 })(this);
