@@ -1,0 +1,5 @@
+1.1
+- Await now accepts multiple arguments, all identifiers will need to be resolved until the future will be called
+
+--
+1.0 - Initial version

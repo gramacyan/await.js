@@ -1,5 +1,5 @@
 /*
- * await.js v1.0
+ * await.js v1.1
  *
 
  Copyright (c) 2016 by Benny Bangels
@@ -32,13 +32,17 @@
 
     "use strict";
 
+    var NOT_MET = new Object();
+
     /**
      * Holds or awaiting objects
      *
      * @type {Array}
      * @private
      */
-    var _awaits = [];
+
+    var _promises = {};
+    root.promises = _promises;
 
 
     /**
@@ -68,16 +72,89 @@
      *
      * @constructor
      */
-    var Future = function() {};
+    var Future = function(id) {
+        this.id = id;
+        this.promises = [];
+        this.met = [];
+    };
     Future.prototype.then = function(fn) {
+        if (typeof fn !== "function") {
+            return;
+        }
         this.exec = fn;
+
         /*
           It is possible the future already have been resolved,
           so we'll have to call 'then' immediately.
         */
-        if (this.result) {
-            fn.call(this.result, this.result);
+        if (this.results) {
+            fn.apply(this.results[0], this.results);
         }
+    };
+
+    /**
+     *
+     * @constructor
+     */
+    var Promise = function(id) {
+        this.id = id;
+        this.value = NOT_MET;
+        this.futures = [];
+    };
+    Promise.prototype.isMet = function() {
+        return this.value !== NOT_MET;
+    };
+    Promise.prototype.notifyMet = function(value) {
+        if (this.value === NOT_MET) {
+            this.value = value;
+        }
+        var self = this;
+        self.futures.forEach(function(future) {
+            var idx = future.met.indexOf(self.id);
+            if (idx !== -1) {
+                // alr met before
+                return;
+            }
+            future.met.push(self.id);
+            if (future.met.length === future.promises.length) {
+                var args = [];
+                future.promises.forEach(function(id) {
+                    var promise = _promises[id];
+                    if (!promise) throw new Error("Looks like someone broke a promise");
+                    var val = promise.value;
+                    if (typeof val === "undefined") {
+                        /**
+                         *  var obj = {};
+                         *  await(obj).then(function(o) { assert o.msg == "Hello"; } );
+                         *  obj.msg = "Hello";
+                         *  await.notify(obj);
+                         */
+                        val = id;
+                    }
+                    else if (val instanceof Lock) { // remove lock proto
+                        var lock = val;
+                        var val = {};
+                        for (var p in lock) { // copy conf properties to unit
+                            if (lock.hasOwnProperty(p)) {
+                                val[p] = lock[p];
+                            }
+                        }
+                    }
+                    args.push(val);
+                    // remove future from promise
+                    promise.futures.splice(promise.futures.indexOf(future), 1)
+                    // remove promise is no futures are left
+                    if (promise.futures.length === 0) {
+                        await.forget(promise.id);
+                    }
+                });
+                future.results = args;
+                if (future.exec) {
+                    future.exec.apply(args[0], args);
+                }
+                //remove.push(future);
+            }
+        });
     };
 
 
@@ -87,20 +164,41 @@
      * @returns {Future}
      */
     function await() {
-        var ref = arguments[0];
-        var future = new Future();
-        var timeout = -1;
-        if (typeof ref === "number") { // timeout
-            timeout = ref;
-            ref = idgen();
-        } else if (ref instanceof Date) {
-            timeout = ref.getTime() - new Date().getTime();
-            ref = idgen();
+        var future = new Future(idgen());
+        var alr_met = [];
+        for (var i = 0; i < arguments.length; i++) {
+            var id = arguments[i];
+            var timeout = -1;
+            if (typeof id === "number") { // timeout
+                timeout = id;
+                id = idgen();
+            } else if (id instanceof Date) {
+                timeout = id.getTime() - new Date().getTime();
+                id = idgen();
+            }
+            future.promises.push(id);
+            // promise
+            var promise = _promises[id];
+            if (!promise) {
+                promise = new Promise(id);
+                _promises[id] = promise;
+            } else {
+                if (promise.isMet()) {
+                    alr_met.push(promise);
+                }
+            }
+            promise.futures.push(future);
+            if (timeout > -1) {
+                setTimeout(function() { await.notify(id); }, timeout);
+            }
         }
-        if (timeout > -1) {
-            setTimeout("await.notify('" + ref + "');", timeout);
-        }
-        _awaits.push({ ref: ref, future: future });
+        // notify alr met
+        alr_met.forEach(function(promise) {
+            if (promise.isMet()) {
+                promise.notifyMet(promise.value);
+            }
+
+        });
         return future;
     }
 
@@ -108,14 +206,13 @@
      *
      * @type {await.forget}
      */
-    await.cancel = await.forget = function(ref) {
-        var i = 0;
-        for (;i<_awaits.length;i++) {
-            if (_awaits[i].ref === ref) {
-                _awaits.splice(i, 1);
-                break;
-            }
+    await.forget = await.cancel = function(what) {
+        if (what === "*") {
+            _promises = {};
+            return;
         }
+        _promises[what] = undefined;
+        delete _promises[what];
     };
 
     /**
@@ -123,53 +220,29 @@
      * @param ref
      * @param val
      */
-    await.notify = await.resolve = function(ref, val) {
-        var c = 0, i = -1;
-        for (;c<_awaits.length;c++) {
-            if (_awaits[c].ref === ref) {
-                i = c;
-                break;
-            }
-        }
-        if (i == -1) {
-            if (console && console.warn) {
-                console.warn("[await] Unable to notify " + ref + ", future does not exist or is already consumed.");
-            }
+    await.notify = await.resolve = function(id, val) {
+        var promise = _promises[id];
+        if (!promise /*not existing*/) {
             return;
         }
-        var interim = _awaits.splice(i, 1)[0];
-        var future = interim.future;
-        /**
-         *  await("message").then(function(msg) { assert msg == "Hello"; } );
-         *  await.notify("message", "Hello");
-         */
-
-        if (typeof val === "undefined") {
-            /**
-             *  var obj = {};
-             *  await(obj).then(function(o) { assert o.msg == "Hello"; } );
-             *  obj.msg = "Hello";
-             *  await.notify(obj);
-             */
-            val = ref;
-        }
-        if (val instanceof Lock) { // remove lock proto
-            var lock = val;
-            var val = {};
-            for (var p in lock) { // copy conf properties to unit
-                if (lock.hasOwnProperty(p)) {
-                    val[p] = lock[p];
-                }
-            }
-        }
-        future.result = val;
-        if (future.exec) {
-            future.exec.call(val, val); // using val as scope makes this. is also accessible
-        }
+        promise.notifyMet(val);
     };
+
+    /**
+     *
+     */
     await.lock = function() {
         return new Lock();
     };
+
+   /**
+    *
+    * @param id
+    * @returns {Future}
+    */
+    await.capture = function(id) {
+
+    }
 
 
 

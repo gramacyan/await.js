@@ -1,8 +1,9 @@
 # await.js
 
-await.js is a lightweight javascript library that enables awaiting object state. It is dependency-independant so it can easily be integrated into existing projects without any overhead or conflict. 
+await.js is a lightweight javascript library that facilitates awaiting object state. It is dependency-independant so it can easily be integrated into existing projects without any overhead or conflict. 
 
-Although sharing some similarities, await.js does **not** follow the **Promises/A+** specification. There is no state process and success/error handling are not provided within the scope of await.js. The original intent is that await.js is a simple utility for async boilerplate.
+Although sharing some similarities, await.js does **not** follow the **Promises/A+** specification. There is no state process, furthermore success/error handling are not provided within the scope of await.js.
+The original intent is await.js being a simple utility for async boilerplate.
 
 ### Example
 
@@ -21,7 +22,7 @@ The await statement accepts one of 3 types of arguments
 Which returns a Future object containing a then-function accepting a handler.
 
 ```
-await( <argument> ) .then(  <then-handler> );
+await( <identifier> ) .then(  <then-handler> );
 ```
 ---
  
@@ -48,7 +49,7 @@ await(new Date(2020,0,1)).then(function() {
 
 await.js allows separate await statements being active at the same time. It's specified argument is what sets them apart and can be anything except primitive numbers or Date objects (see awaiting time).
 
-Use `await.notify` or `await.resolve` to notify the specified identifier being ready to be handled. Beware if the identifier is an object it should be the same instance as provided in the await statement.
+Use `await.notify` or `await.resolve` to notify that the awaiting identifier is ready. Beware if the identifier is an object it should be the same instance as provided in the await statement.
 
 ```
 // Await
@@ -59,7 +60,7 @@ await({}).then(...);
 // Notify
 await.notify("my-identifier");
 await.notify(true);
-await.notify({}); // <-- does not work
+await.notify({}); // <-- does not work (new object instance)
 ```
 
 ##### Canceling
@@ -71,7 +72,7 @@ await.cancel("my-identifier");
 
 ##### Handling
 
-After notifying using `await.notify` or `await.resolve` the handler-function will be executed in the **scope of the identifier**, the identifier will also be passed as argument.
+After notifying using `await.notify` or `await.resolve` the handler-function will be executed in the **scope of the identifier/object**, the identifier will also be passed as argument.
 
 ```
 var preparedObject = {};
@@ -88,11 +89,25 @@ await.notify(preparedObject);
 If you don't know what the result object will be, *eg. awaiting a http-response*, you can override the identifier by adding it as second argument to the `await.notify` or `await.resolve` function.
 
 ```
-await("http-get").then(function() {
-  console.log(this.statusCode);
+await("http-get").then(function(res) {
+  console.log(res.statusCode);
 });
 ...
 await.notify("http-get", { statusCode: 200 })
+```
+
+
+##### Multi await
+
+Sometimes you might want to wait on several object to become ready before firing a block of code. This can be done by passing multiple arguments to the `await` command.
+
+```
+await("window-ready", "authenticated").then(function(rdy, auth) {
+  if (rdy && auth) { ... }
+});
+...
+await.notify("window-ready", true)
+await.notify("authenticated", false)
 ```
 
 
@@ -114,7 +129,7 @@ window.onload = function() {
 
 ---
 
-### Working async example
+### Full example
 
 ```
 var Remote = {
